@@ -1,0 +1,117 @@
+UDP CLIENT:-
+#include <iostream>
+#include <cstring>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+
+int main() {
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock == -1) {
+        std::cerr << "Failed to create socket\n";
+        return 1;
+    }
+
+    sockaddr_in server_addr{};
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(54000);
+    inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr);
+
+    const char* msg = "Hello UDP server!";
+    int send_result = sendto(sock, msg, strlen(msg), 0, 
+                             (sockaddr*)&server_addr, sizeof(server_addr));
+    if (send_result == -1) {
+        std::cerr << "sendto() failed\n";
+        close(sock);
+        return 1;
+    }
+
+    char buffer[4096];
+    memset(buffer, 0, sizeof(buffer));
+
+    sockaddr_in from_addr{};
+    socklen_t from_len = sizeof(from_addr);
+
+    int bytes_received = recvfrom(sock, buffer, sizeof(buffer), 0,
+                                  (sockaddr*)&from_addr, &from_len);
+    if (bytes_received == -1) {
+        std::cerr << "recvfrom() failed\n";
+    } else {
+        std::cout << "Server replied: " 
+                  << std::string(buffer, bytes_received) << "\n";
+    }
+
+    close(sock);
+    return 0;
+}
+Commands:-
+./client
+
+
+UDP SERVER:-
+#include <iostream>
+#include <cstring>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <unistd.h>
+
+int main() {
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock == -1) {
+        std::cerr << "Failed to create socket\n";
+        return 1;
+    }
+
+    sockaddr_in server_addr{};
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(54000);
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+
+    if (bind(sock, (sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
+        std::cerr << "Bind failed\n";
+        close(sock);
+        return 1;
+    }
+
+    char buffer[4096];
+    sockaddr_in client_addr{};
+    socklen_t client_len = sizeof(client_addr);
+
+    std::cout << "UDP Server listening on port 54000...\n";
+
+    while (true) {
+        memset(buffer, 0, sizeof(buffer));
+
+        int bytes_received = recvfrom(sock, buffer, sizeof(buffer), 0,
+                                      (sockaddr*)&client_addr, &client_len);
+
+        if (bytes_received == -1) {
+            std::cerr << "recvfrom() failed\n";
+            continue;
+        }
+
+        std::cout << "Received: " << std::string(buffer, bytes_received) << "\n";
+
+        // Echo back to client
+        sendto(sock, buffer, bytes_received, 0,
+               (sockaddr*)&client_addr, client_len);
+    }
+
+    close(sock);
+    return 0;
+}
+
+
+Command: 
+g++ udp _server.cpp -o server
+g++ udp_client.cpp -o client
+./server
+
+
+journalctl -k | grep -i "New USB device" | wc -l
+
+sudo journalctl --rotate
+sudo journalctl --vacuum-time=1s
